@@ -1,6 +1,6 @@
 import { ethers, parseEther } from "ethers";
 
-import { signMPC } from "../contract/signer";
+import { signMPCDemo, CONTRACT_ID } from "../contract/signer";
 import { Account } from "near-api-js";
 import Link from "next/link";
 import { toast } from "react-toastify";
@@ -177,10 +177,11 @@ class EVM {
     tx: Transaction,
     account: Account,
     keyPath: string,
-    derivationRootPublicKey: string
+    derivationRootPublicKey: string,
+    alias: string,
   ): Promise<ethers.TransactionLike | undefined> {
     const from = EVM.deriveProductionAddress(
-      account?.accountId,
+      CONTRACT_ID,
       keyPath,
       derivationRootPublicKey
     );
@@ -194,10 +195,10 @@ class EVM {
 
     const transactionHash = EVM.prepareTransactionForSignature(transaction);
 
-    const signature = await signMPC(
+    const signature = await signMPCDemo(
       account,
       Array.from(ethers.getBytes(transactionHash)),
-      keyPath
+      alias
     );
 
     if (signature) {

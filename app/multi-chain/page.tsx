@@ -11,7 +11,7 @@ import Button from "@/components/Button";
 import { LuCopy } from "react-icons/lu";
 import { toast } from "react-toastify";
 import { Bitcoin } from "@/utils/chain/Bitcoin";
-import { getRootPublicKey } from "@/utils/contract/signer";
+import { getRootPublicKey, getAccountDetail, addDP, CONTRACT_ID } from "@/utils/contract/signer";
 
 const MPC_PUBLIC_KEY =
   "secp256k1:4HFcTSodRLVCGNVcGc4Mf2fwBBBxv9jxkGdiW2S2CA1y6UpVVRWKj6RX7d7TDt65k2Bj3w9FU4BGtt43ZvuhCnNt";
@@ -38,9 +38,9 @@ const chainsConfig = {
 };
 
 enum Chain {
-  ETH = "ETH",
-  BNB = "BNB",
-  BTC = "BTC",
+  ETH = 60,
+  BNB = 714,
+  BTC = 0,
 }
 
 export default function Home() {
@@ -51,6 +51,10 @@ export default function Home() {
   const [derivedAddress, setDerivedAddress] = useState("");
   const [accountBalance, setAccountBalance] = useState("");
   const [chain, setChain] = useState<Chain>(Chain.ETH);
+  const [newAlias, setNewAlias] = useState("");
+
+  const [alias, setAlias] = useState("");
+  const [accountPaths, setAccountPaths] = useState({});
 
   const ethereum = useMemo(() => new EVM(chainsConfig.ethereum), []);
 
@@ -72,7 +76,8 @@ export default function Home() {
               data,
               account,
               derivedPath,
-              MPC_PUBLIC_KEY
+              MPC_PUBLIC_KEY,
+              alias
             );
             break;
           case Chain.ETH:
@@ -80,7 +85,8 @@ export default function Home() {
               data,
               account,
               derivedPath,
-              MPC_PUBLIC_KEY
+              MPC_PUBLIC_KEY,
+              alias
             );
             break;
           case Chain.BTC:
@@ -91,7 +97,8 @@ export default function Home() {
               },
               account,
               derivedPath,
-              MPC_PUBLIC_KEY
+              MPC_PUBLIC_KEY,
+              alias
             );
             break;
           default:
@@ -103,8 +110,18 @@ export default function Home() {
         setIsSendingTransaction(false);
       }
     },
-    [account, bsc, chain, derivedPath, ethereum, bitcoin]
+    [account, derivedPath, chain, bsc, alias, ethereum, bitcoin]
   );
+
+  useEffect(() => {
+    const getAccount = async () => {
+      const accountDetail = await getAccountDetail(account);
+      if (accountDetail) {
+        setAccountPaths(accountDetail.derivation_path_infos)
+      }
+    }
+    getAccount()
+  }, [account, chain])
 
   useEffect(() => {
     const getAddress = async () => {
@@ -122,23 +139,23 @@ export default function Home() {
 
       let address = "";
       switch (chain) {
-        case "ETH":
+        case Chain.ETH:
           address = EVM.deriveProductionAddress(
-            account.accountId,
+            CONTRACT_ID,
             derivedPath,
             MPC_PUBLIC_KEY
           );
           break;
-        case "BTC":
+        case Chain.BTC:
           address = Bitcoin.deriveProductionAddress(
-            account.accountId,
+            CONTRACT_ID,
             derivedPath,
             MPC_PUBLIC_KEY
           ).address;
           break;
-        case "BNB":
+        case Chain.BNB:
           address = EVM.deriveProductionAddress(
-            account.accountId,
+            CONTRACT_ID,
             derivedPath,
             MPC_PUBLIC_KEY
           );
@@ -154,21 +171,31 @@ export default function Home() {
   const getAccountBalance = useCallback(async () => {
     let balance = "";
     switch (chain) {
-      case "ETH":
+      case Chain.ETH:
         balance =
           (await ethereum.getBalance(derivedAddress)).slice(0, 8) + " ETH";
         break;
-      case "BTC":
+      case Chain.BTC:
         balance =
           (await bitcoin.fetchBalance(derivedAddress)).slice(0, 8) + " BTC";
         break;
-      case "BNB":
+      case Chain.BNB:
         balance = (await bsc.getBalance(derivedAddress)).slice(0, 8) + " BNB";
         break;
     }
 
     setAccountBalance(balance);
   }, [bsc, chain, derivedAddress, ethereum, bitcoin]);
+
+  const addDerivationPath = useCallback(async () => {
+    if (account) {
+      await addDP(account, newAlias, chain);
+      const accountDetail = await getAccountDetail(account);
+      if (accountDetail) {
+        setAccountPaths(accountDetail.derivation_path_infos)
+      }
+    }
+  }, [account, chain, newAlias]);
 
   return (
     <div className="h-screen w-full flex justify-center items-center">
@@ -183,14 +210,44 @@ export default function Home() {
             value={chain}
             onChange={(e) => {
               setAccountBalance("");
-              setChain(e.target.value as Chain);
+              setChain(parseInt(e.target.value, 10) as Chain);
             }}
             options={[
-              { value: Chain.ETH, label: "ETH" },
-              { value: Chain.BTC, label: "BTC" },
-              { value: Chain.BNB, label: "BNB" },
+              { value: Chain.ETH.toString(), label: "ETH" },
+              { value: Chain.BTC.toString(), label: "BTC" },
+              { value: Chain.BNB.toString(), label: "BNB" },
             ]}
           />
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="New Alias"
+              name="New Alias"
+              value={newAlias}
+              onChange={(e) => setNewAlias(e.target.value)}
+            />
+            <Button onClick={addDerivationPath} className="h-[38px] self-end">
+              Add Derivation Path
+            </Button>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            {Object.entries(accountPaths).map(([k, v], index) => (
+              <Input
+                key={index.toString()}
+                label={"path " + index.toString() + ": " + k + " " + "path"}
+                name={"path " + index.toString() + ": " + k}
+                value={JSON.stringify(v)}
+                disabled
+                icon={{
+                  icon: <LuCopy />,
+                  onClick: () => {
+                    setDerivedPath(JSON.stringify(v))
+                    setAlias(k)
+                  },
+                }}
+              />
+            ))}
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <Input
               label="Path"

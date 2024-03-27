@@ -1,6 +1,8 @@
 import BN from "bn.js";
 import { Account } from "near-api-js";
 
+export const CONTRACT_ID = "mcs-demo.testnet";
+
 /**
  * Signs a payload using a Multi-Party Computation (MPC) approach on the NEAR blockchain.
  *
@@ -50,6 +52,60 @@ export async function signMPC(
   return undefined;
 }
 
+export async function signMPCDemo(
+  account: Account,
+  payload: number[],
+  alias: string
+): Promise<
+  | {
+      r: string;
+      s: string;
+    }
+  | undefined
+> {
+  const result = await account.functionCall({
+    contractId: CONTRACT_ID,
+    methodName: "sign",
+    args: {
+      alias,
+      payload: payload.slice().reverse(),
+      key_version: 0
+    },
+    gas: new BN("300000000000000"),
+    attachedDeposit: new BN("0"),
+  });
+
+  if ("SuccessValue" in (result.status as any)) {
+    const successValue = (result.status as any).SuccessValue;
+    const decodedValue = Buffer.from(successValue, "base64").toString("utf-8");
+    const parsedJSON = JSON.parse(decodedValue) as [string, string];
+
+    return {
+      r: parsedJSON[0].slice(2),
+      s: parsedJSON[1],
+    };
+  }
+
+  return undefined;
+}
+
+export async function addDP(
+  account: Account,
+  alias: string,
+  chain: number
+){
+  await account.functionCall({
+    contractId: CONTRACT_ID,
+    methodName: "add_derivation_path",
+    args: {
+      alias,
+      chain
+    },
+    gas: new BN("300000000000000"),
+    attachedDeposit: new BN("0"),
+  });
+}
+
 /**
  * Calls the `public_key` method on the contract to retrieve the public key.
  *
@@ -80,4 +136,22 @@ export async function getRootPublicKey(
   }
 
   return undefined;
+}
+
+
+export async function getAccountDetail(
+  account: Account | undefined
+): Promise<{
+  account_id: string,
+  derivation_path_infos: {}
+} | undefined> {
+  if (account) {
+    return await account.viewFunction({
+      contractId: "mcs-demo.testnet",
+      methodName: "get_account",
+      args: {
+        account_id: account.accountId,
+      },
+    })
+  }
 }
