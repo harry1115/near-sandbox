@@ -1,5 +1,5 @@
 import BN from "bn.js";
-import { Account } from "near-api-js";
+import { Account, utils } from "near-api-js";
 
 export const CONTRACT_ID = "mcs-demo.testnet";
 
@@ -94,6 +94,26 @@ export async function addDP(
   alias: string,
   chain: number
 ){
+  const isRegistered = await account.viewFunction({
+    contractId: CONTRACT_ID,
+    methodName: "storage_balance_of",
+    args: {
+      account_id: account.accountId,
+    },
+  })
+  console.log('isRegistered', isRegistered)
+  if(!isRegistered){
+   const res=  await account.functionCall({
+      contractId: CONTRACT_ID,
+      methodName: "storage_deposit",
+      args: {},
+      gas: new BN("300000000000000"),
+      // 1 NEAR
+      attachedDeposit: new BN(utils.format.parseNearAmount('1')!),
+    });
+    console.log('storage_deposit res', res)
+  }
+
   await account.functionCall({
     contractId: CONTRACT_ID,
     methodName: "add_derivation_path",

@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import Loader from "@/components/Loader";
-import useInitNear from "@/hooks/useInitNear";
 import Input from "@/components/Input";
 import Select from "@/components/Select";
 import EVM from "@/utils/chain/EVM";
@@ -12,6 +11,8 @@ import { LuCopy } from "react-icons/lu";
 import { toast } from "react-toastify";
 import { Bitcoin } from "@/utils/chain/Bitcoin";
 import { getRootPublicKey, getAccountDetail, addDP, CONTRACT_ID } from "@/utils/contract/signer";
+import Account from "@/components/Account";
+import { useAccountContext } from "@/providers/Account";
 
 const MPC_PUBLIC_KEY =
   "secp256k1:4HFcTSodRLVCGNVcGc4Mf2fwBBBxv9jxkGdiW2S2CA1y6UpVVRWKj6RX7d7TDt65k2Bj3w9FU4BGtt43ZvuhCnNt";
@@ -46,7 +47,7 @@ enum Chain {
 export default function Home() {
   const { register, handleSubmit } = useForm<Transaction>();
   const [isSendingTransaction, setIsSendingTransaction] = useState(false);
-  const { account, isLoading: isNearLoading } = useInitNear();
+  const { accountConnection, accountLoading } = useAccountContext();
   const [derivedPath, setDerivedPath] = useState("");
   const [derivedAddress, setDerivedAddress] = useState("");
   const [accountBalance, setAccountBalance] = useState("");
@@ -64,7 +65,7 @@ export default function Home() {
 
   const onSubmit = useCallback(
     async (data: Transaction) => {
-      if (!account?.accountId || !derivedPath) {
+      if (!accountConnection?.accountId || !derivedPath) {
         throw new Error("Account not found");
       }
 
@@ -74,7 +75,7 @@ export default function Home() {
           case Chain.BNB:
             await bsc.handleTransaction(
               data,
-              account,
+              accountConnection,
               derivedPath,
               MPC_PUBLIC_KEY,
               alias
@@ -83,7 +84,7 @@ export default function Home() {
           case Chain.ETH:
             await ethereum.handleTransaction(
               data,
-              account,
+              accountConnection,
               derivedPath,
               MPC_PUBLIC_KEY,
               alias
@@ -95,7 +96,7 @@ export default function Home() {
                 to: data.to,
                 value: parseFloat(data.value),
               },
-              account,
+              accountConnection,
               derivedPath,
               MPC_PUBLIC_KEY,
               alias
@@ -110,27 +111,27 @@ export default function Home() {
         setIsSendingTransaction(false);
       }
     },
-    [account, derivedPath, chain, bsc, alias, ethereum, bitcoin]
+    [accountConnection, derivedPath, chain, bsc, alias, ethereum, bitcoin]
   );
 
   useEffect(() => {
     const getAccount = async () => {
-      const accountDetail = await getAccountDetail(account);
+      const accountDetail = await getAccountDetail(accountConnection);
       if (accountDetail) {
         setAccountPaths(accountDetail.derivation_path_infos)
       }
     }
     getAccount()
-  }, [account, chain])
+  }, [accountConnection, chain])
 
   useEffect(() => {
     const getAddress = async () => {
-      if (!account) {
+      if (!accountConnection) {
         setDerivedAddress("");
         return;
       }
 
-      // const publicKey = await getRootPublicKey(account, Contracts.PRODUCTION);
+      // const publicKey = await getRootPublicKey(accountConnection, Contracts.PRODUCTION);
 
       // if (!publicKey) {
       //   setDerivedAddress("");
@@ -166,7 +167,7 @@ export default function Home() {
     };
 
     getAddress();
-  }, [account, chain, derivedPath]);
+  }, [accountConnection, chain, derivedPath]);
 
   const getAccountBalance = useCallback(async () => {
     let balance = "";
@@ -188,18 +189,20 @@ export default function Home() {
   }, [bsc, chain, derivedAddress, ethereum, bitcoin]);
 
   const addDerivationPath = useCallback(async () => {
-    if (account) {
-      await addDP(account, newAlias, chain);
-      const accountDetail = await getAccountDetail(account);
+    if (accountConnection) {
+      await addDP(accountConnection, newAlias, chain);
+      const accountDetail = await getAccountDetail(accountConnection);
       if (accountDetail) {
         setAccountPaths(accountDetail.derivation_path_infos)
       }
     }
-  }, [account, chain, newAlias]);
+  }, [accountConnection, chain, newAlias]);
 
   return (
-    <div className="h-screen w-full flex justify-center items-center">
-      {!account || isNearLoading ? (
+    <div>
+      <Account />
+      <div className="h-screen w-full flex justify-center items-center">
+      {!accountConnection || accountLoading ? (
         <Loader />
       ) : (
         <div className="flex flex-col gap-4">
@@ -297,5 +300,7 @@ export default function Home() {
         </div>
       )}
     </div>
+    </div>
+   
   );
 }

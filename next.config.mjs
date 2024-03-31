@@ -1,4 +1,8 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {};
+const nextConfig = {
+    redirects:()=>[
+        { source: '/', destination: '/multi-chain', permanent: true}
+    ]
+};
 
 export default nextConfig;
