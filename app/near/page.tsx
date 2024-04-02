@@ -38,6 +38,7 @@ const NearPage = () => {
       const signedDelegate = await account.signedDelegate({
         receiverId: "multichain-testnet-2.testnet",
         actions: [
+          //@ts-ignore
           new Action({
             functionCall: new FunctionCall({
               methodName: "sign",
