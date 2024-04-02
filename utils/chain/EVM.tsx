@@ -148,6 +148,7 @@ class EVM {
     path: string,
     derivationRootPublicKey: string
   ): string {
+    console.log('signerId',signerId,'path',path,'derivationRootPublicKey',derivationRootPublicKey)
     const epsilon = KeyDerivation.deriveEpsilon(signerId, path);
     const derivedKey = KeyDerivation.deriveKey(
       derivationRootPublicKey,
