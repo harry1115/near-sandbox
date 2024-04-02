@@ -35,9 +35,8 @@ export default function useAccount() {
         const { seedPhrase, accountId } = accountServices.createAccount()
         console.log(seedPhrase)
         await connectAccount(accountId);
-        alert(`Account ${accountId} created, please download the seed phrase!`)
-        accountServices.downloadSeedPhrase(accountId, seedPhrase)
         setAccountId(accountId)
+        return seedPhrase
     }
 
     async function importAccount() {

@@ -199,13 +199,13 @@ export default function Home() {
   }, [accountConnection, chain, newAlias]);
 
   return (
-    <div>
+    <div className="text-xs">
       <Account />
-      <div className="h-screen w-full flex justify-center items-center">
-      {!accountConnection || accountLoading ? (
+      {accountConnection &&   <div className="h-screen w-full flex justify-center ">
+      {accountLoading ? (
         <Loader />
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 p-2">
           <Select
             label="Chain"
             placeholder="Select chain"
@@ -281,7 +281,7 @@ export default function Home() {
               disabled
             />
           </div>
-          <h2 className="text-white text-2xl font-bold">Transaction</h2>
+          <h2 className=" text-xl font-bold mt-5">Transaction</h2>
           <form
             onSubmit={handleSubmit(onSubmit)}
             className="flex flex-col gap-4"
@@ -299,7 +299,8 @@ export default function Home() {
           </form>
         </div>
       )}
-    </div>
+    </div> }
+    
     </div>
    
   );
