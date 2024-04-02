@@ -213,12 +213,12 @@ export default function Home() {
   return (
     <div className="text-xs">
       <Account />
-      {accountConnection && <div className="h-screen w-full flex justify-center ">
+      {accountConnection && <div className="w-full flex justify-center ">
         {accountLoading ? (
           <Loading />
         ) : (
-          <div className="flex flex-col gap-4 p-3 w-full">
-            <div className="flex items-center justify-center gap-3">
+          <div className="p-3 w-full">
+            <div className="flex items-center justify-center gap-3 mb-2">
               <Tabs color="primary" variant="underlined" size="lg" items={[
                 { value: Chain.ETH.toString(), label: "ETH" },
                 { value: Chain.BTC.toString(), label: "BTC" },
@@ -234,7 +234,7 @@ export default function Home() {
             </div>
 
        
-            <Card>
+            <Card className="mb-4">
               <CardHeader className="flex flex-wrap gap-3 justify-between">
                 {
                   Object.keys(accountPaths).length > 0 && <Tabs className="w-full" color="primary" items={Object.keys(accountPaths).map((item) => ({ value: item, label: item }))} selectedKey={alias} onSelectionChange={(v) => setAlias(v.toString())}>
