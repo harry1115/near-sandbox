@@ -1,6 +1,6 @@
 import * as bitcoin from "bitcoinjs-lib";
 import axios from "axios";
-import { signMPCDemo, CONTRACT_ID } from "../contract/signer";
+import { transactionServices, CONTRACT_ID } from "@/services/transaction";
 import { ethers } from "ethers";
 import { Account } from "near-api-js";
 import Link from "@/components/Link";
@@ -312,7 +312,6 @@ export class Bitcoin {
    * @param {Object} data - The transaction data.
    * @param {string} data.to - The recipient's Bitcoin address.
    * @param {number} data.value - The amount of Bitcoin to send (in BTC).
-   * @param {Account} account - The NEAR account object
    * @param {string} keyPath - Specifies the key derivation path.
    */
   async handleTransaction(
@@ -320,10 +319,9 @@ export class Bitcoin {
       to: string;
       value: number;
     },
-    account: Account,
     keyPath: string,
     derivationRootPublicKey: string,
-    alias: string,
+    tokenId: string,
   ) {
     const satoshis = Bitcoin.toSatoshi(data.value);
     const { address, publicKey } = Bitcoin.deriveProductionAddress(
@@ -385,10 +383,10 @@ export class Bitcoin {
     const mpcKeyPair = {
       publicKey,
       sign: async (transactionHash: Buffer): Promise<Buffer> => {
-        const signature = await signMPCDemo(
-          account,
+        const signature = await transactionServices.sign(
+          
           Array.from(ethers.getBytes(transactionHash)),
-          alias
+          tokenId
         );
 
         if (!signature) {

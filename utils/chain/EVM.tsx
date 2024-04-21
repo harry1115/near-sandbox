@@ -1,6 +1,6 @@
 import { ethers, parseEther } from "ethers";
 
-import { signMPCDemo, CONTRACT_ID } from "../contract/signer";
+import { transactionServices, CONTRACT_ID } from "@/services/transaction";
 import { Account } from "near-api-js";
 import Link from "next/link";
 import { toast } from "react-toastify";
@@ -169,17 +169,15 @@ class EVM {
    * to facilitate the execution of a transaction on the blockchain network.
    *
    * @param {Transaction} tx - Contains the transaction details such as the recipient's address and the transaction value.
-   * @param {Account} account - Holds the account credentials including the unique account ID.
    * @param {string} keyPath - Specifies the key derivation path.
    * @param {string} derivationRootPublicKey - The root public key for derivation
    * @returns {Promise<void>} A promise that is fulfilled once the transaction has been successfully processed.
    */
   async handleTransaction(
     tx: Transaction,
-    account: Account,
     keyPath: string,
     derivationRootPublicKey: string,
-    alias: string,
+    tokenId: string,
   ): Promise<ethers.TransactionLike | undefined> {
     const from = EVM.deriveProductionAddress(
       CONTRACT_ID,
@@ -194,13 +192,16 @@ class EVM {
       data: tx.data || "0x",
     });
 
-    const transactionHash = EVM.prepareTransactionForSignature(transaction);
+    console.log('transaction',transaction)
 
-    const signature = await signMPCDemo(
-      account,
+    const transactionHash = EVM.prepareTransactionForSignature(transaction);
+    console.log('transactionHash',transactionHash)
+
+    const signature = await transactionServices.sign(
       Array.from(ethers.getBytes(transactionHash)),
-      alias
+      tokenId
     );
+    console.log('signature',signature)
 
     if (signature) {
       const r = `0x${signature.r}`;

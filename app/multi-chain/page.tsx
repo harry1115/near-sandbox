@@ -9,11 +9,24 @@ import EVM from "@/utils/chain/EVM";
 import { LuCopy } from "react-icons/lu";
 import { toast } from "react-toastify";
 import { Bitcoin } from "@/utils/chain/Bitcoin";
-import { getRootPublicKey, getAccountDetail, addDP, CONTRACT_ID } from "@/utils/contract/signer";
-import Account from "@/components/Account";
+import {
+  transactionServices,
+  marketServices,
+  CONTRACT_ID,
+  Token,
+} from "@/services/transaction";
 import { useAccountContext } from "@/providers/Account";
 import Loading from "@/components/Loading";
-import { Button, Card, CardBody, CardHeader, Snippet, Tab, Tabs } from "@nextui-org/react";
+import {
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  Snippet,
+  Tab,
+  Tabs,
+} from "@nextui-org/react";
+import { useRequest } from "@/hooks/useHooks";
 
 const MPC_PUBLIC_KEY =
   "secp256k1:4HFcTSodRLVCGNVcGc4Mf2fwBBBxv9jxkGdiW2S2CA1y6UpVVRWKj6RX7d7TDt65k2Bj3w9FU4BGtt43ZvuhCnNt";
@@ -50,15 +63,32 @@ export default function Home() {
   const [isSendingTransaction, setIsSendingTransaction] = useState(false);
   const { accountConnection, accountLoading } = useAccountContext();
 
-  const [derivedAddress, setDerivedAddress] = useState("");
   const [accountBalance, setAccountBalance] = useState("");
   const [chain, setChain] = useState<Chain>(Chain.ETH);
-  const [newAlias, setNewAlias] = useState("");
 
-  const [accountPaths, setAccountPaths] = useState<Record<string, { chain: Chain; meta: { id: number } }>>({});
-  const [alias, setAlias] = useState("");
-  const derivedPath = useMemo(() => JSON.stringify(accountPaths[alias]), [alias, accountPaths])
+  const [selectedTokenId, setSelectedTokenId] = useState<string>();
 
+  const {
+    data: accountTokens,
+    loading,
+    run: refreshAccountTokens,
+  } = useRequest(() => transactionServices.queryTokens(chain), {
+    before: () => !!accountConnection,
+    refreshDeps: [accountConnection, chain],
+    onSuccess(res) {
+      console.log("accountTokens", res);
+    },
+  });
+
+  const accountToken = useMemo(
+    () => accountTokens?.find((t) => t.token_id === selectedTokenId),
+    [accountTokens, selectedTokenId]
+  );
+  const derivedPath = useMemo(
+    () =>
+      accountToken ? (JSON.parse(accountToken.token_id).meta.id as string) : "",
+    [accountToken]
+  );
 
   const ethereum = useMemo(() => new EVM(chainsConfig.ethereum), []);
 
@@ -66,9 +96,40 @@ export default function Home() {
 
   const bitcoin = useMemo(() => new Bitcoin(chainsConfig.btc), []);
 
+  const derivedAddress = useMemo(() => {
+    if (!accountConnection) {
+      return "";
+    }
+    let address = "";
+    switch (Number(chain)) {
+      case Chain.ETH:
+        address = EVM.deriveProductionAddress(
+          CONTRACT_ID,
+          derivedPath,
+          MPC_PUBLIC_KEY
+        );
+        break;
+      case Chain.BTC:
+        address = Bitcoin.deriveProductionAddress(
+          CONTRACT_ID,
+          derivedPath,
+          MPC_PUBLIC_KEY
+        ).address;
+        break;
+      case Chain.BNB:
+        address = EVM.deriveProductionAddress(
+          CONTRACT_ID,
+          derivedPath,
+          MPC_PUBLIC_KEY
+        );
+        break;
+    }
+    return address;
+  }, [accountConnection, chain, derivedPath]);
+
   const onSubmit = useCallback(
     async (data: Transaction) => {
-      if (!accountConnection?.accountId || !derivedPath) {
+      if (!accountConnection?.accountId || !derivedPath || !selectedTokenId) {
         throw new Error("Account not found");
       }
 
@@ -79,19 +140,17 @@ export default function Home() {
           case Chain.BNB:
             await bsc.handleTransaction(
               data,
-              accountConnection,
               derivedPath,
               MPC_PUBLIC_KEY,
-              alias
+              selectedTokenId
             );
             break;
           case Chain.ETH:
             await ethereum.handleTransaction(
               data,
-              accountConnection,
               derivedPath,
               MPC_PUBLIC_KEY,
-              alias
+              selectedTokenId
             );
             break;
           case Chain.BTC:
@@ -100,10 +159,9 @@ export default function Home() {
                 to: data.to,
                 value: parseFloat(data.value),
               },
-              accountConnection,
               derivedPath,
               MPC_PUBLIC_KEY,
-              alias
+              selectedTokenId
             );
             break;
           default:
@@ -115,63 +173,16 @@ export default function Home() {
         setIsSendingTransaction(false);
       }
     },
-    [accountConnection, derivedPath, chain, bsc, alias, ethereum, bitcoin]
+    [
+      accountConnection?.accountId,
+      derivedPath,
+      selectedTokenId,
+      chain,
+      bsc,
+      ethereum,
+      bitcoin,
+    ]
   );
-
-  useEffect(() => {
-    const getAccount = async () => {
-      const accountDetail = await getAccountDetail(accountConnection);
-      if (accountDetail) {
-        setAccountPaths(accountDetail.derivation_path_infos)
-      }
-    }
-    getAccount()
-  }, [accountConnection, chain])
-
-  useEffect(() => {
-    const getAddress = async () => {
-      if (!accountConnection) {
-        setDerivedAddress("");
-        return;
-      }
-
-      // const publicKey = await getRootPublicKey(accountConnection, Contracts.PRODUCTION);
-
-      // if (!publicKey) {
-      //   setDerivedAddress("");
-      //   return;
-      // }
-
-      let address = "";
-      switch (Number(chain)) {
-        case Chain.ETH:
-          address = EVM.deriveProductionAddress(
-            CONTRACT_ID,
-            derivedPath,
-            MPC_PUBLIC_KEY
-          );
-          break;
-        case Chain.BTC:
-          address = Bitcoin.deriveProductionAddress(
-            CONTRACT_ID,
-            derivedPath,
-            MPC_PUBLIC_KEY
-          ).address;
-          break;
-        case Chain.BNB:
-          address = EVM.deriveProductionAddress(
-            CONTRACT_ID,
-            derivedPath,
-            MPC_PUBLIC_KEY
-          );
-          break;
-      }
-      console.log('address', address)
-      setDerivedAddress(address);
-    };
-
-    getAddress();
-  }, [accountConnection, chain, derivedPath]);
 
   const getAccountBalance = useCallback(async () => {
     let balance = "";
@@ -195,112 +206,213 @@ export default function Home() {
   const [loadingAdd, setLoadingAdd] = useState(false);
   const addDerivationPath = useCallback(async () => {
     if (accountConnection) {
-      const newAlias = await prompt("Please enter the alias for the new derivation path");
+      const newAlias = await prompt(
+        "Please enter the alias for the new derivation path"
+      );
       if (!newAlias) return;
       try {
         setLoadingAdd(true);
-        await addDP(accountConnection, newAlias, chain);
-        const accountDetail = await getAccountDetail(accountConnection);
-        if (accountDetail) {
-          setAccountPaths(accountDetail.derivation_path_infos)
-        }
+        await transactionServices.addDerivationPath(newAlias, chain);
+        refreshAccountTokens();
       } finally {
         setLoadingAdd(false);
       }
     }
-  }, [accountConnection, chain]);
+  }, [accountConnection, chain, refreshAccountTokens]);
+
+  const [loadingSell, setLoadingSell] = useState(false);
+  const handleSell = useCallback(async () => {
+    if (!accountConnection?.accountId || !derivedPath || !selectedTokenId) {
+      throw new Error("Account not found");
+    }
+    try {
+      const price = await prompt("Please enter the price to sell");
+      if (!price) return;
+      setLoadingSell(true);
+      const result = await marketServices.addDerivationPathToMarket(
+        selectedTokenId,
+        price
+      );
+      console.log("result", result);
+    } finally {
+      setLoadingSell(false);
+    }
+  }, [accountConnection?.accountId, derivedPath, selectedTokenId]);
+
+  const [loadingEdit, setLoadingEdit] = useState(false);
+  const handleEdit = useCallback(async () => {
+    if (!accountConnection?.accountId || !derivedPath || !selectedTokenId) {
+      throw new Error("Account not found");
+    }
+    try {
+      const newAlias = await prompt(
+        "Please enter the new alias for the derivation path",
+        accountToken?.metadata.title
+      );
+      if (!newAlias || newAlias === accountToken?.metadata.title) return;
+      setLoadingEdit(true);
+      await transactionServices.updateDerivationPath(newAlias, selectedTokenId);
+      refreshAccountTokens();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setLoadingEdit(false);
+    }
+  }, [
+    accountConnection?.accountId,
+    derivedPath,
+    selectedTokenId,
+    accountToken?.metadata.title,
+    refreshAccountTokens,
+  ]);
 
   return (
     <div className="text-xs">
-      <Account />
-      {accountConnection && <div className="w-full flex justify-center ">
-        {accountLoading ? (
-          <Loading />
-        ) : (
-          <div className="p-3 w-full">
-            <div className="flex items-center justify-center gap-3 mb-2">
-              <Tabs color="primary" variant="underlined" size="lg" items={[
-                { value: Chain.ETH.toString(), label: "ETH" },
-                { value: Chain.BTC.toString(), label: "BTC" },
-                { value: Chain.BNB.toString(), label: "BNB" },
-              ]} selectedKey={chain.toString()} onSelectionChange={(v) => {
-                setAccountBalance("");
-                setChain(Number(v) as Chain);
-              }}>
-                {(item) => (
-                  <Tab key={item.value} title={item.label}></Tab>
-                )}
-              </Tabs>
-            </div>
-
-       
-            <Card className="mb-4">
-              <CardHeader className="flex flex-wrap gap-3 justify-between">
-                {
-                  Object.keys(accountPaths).length > 0 && <Tabs className="w-full" color="primary" items={Object.keys(accountPaths).map((item) => ({ value: item, label: item }))} selectedKey={alias} onSelectionChange={(v) => setAlias(v.toString())}>
-                    {(item) => (
-                      <Tab key={item.value} title={item.label}></Tab>
-                    )}
-                  </Tabs>
-                }
-                <Button onClick={addDerivationPath} isLoading={loadingAdd} color="primary" variant="bordered" size="sm" >
-                Add Derivation Path
-                </Button>
-              </CardHeader>
-              {alias && <CardBody>
-                <div>
-                
-                  <Input
-                    label="Derived Address"
-                    name="derivedAddress"
-                    value={derivedAddress}
-                    disabled
-                    icon={{
-                      icon: <LuCopy />,
-                      onClick: () => {
-                        navigator.clipboard.writeText(derivedAddress ?? "");
-                        toast.success("Copied!");
-                      },
-                    }}
-                  />
-                  <div>
-                    Balance: {accountBalance} <Button onClick={getAccountBalance} color="primary" variant="light" size="sm" className=" self-end">
-                      Check Balance
-                    </Button>
-                  </div>
-                </div>
-              </CardBody>}
-
-            </Card>
-
-            <Card>
-              <CardBody>
-                <h2 className=" text-xl font-bold mb-3">Transaction</h2>
-                <form
-                  onSubmit={handleSubmit(onSubmit)}
-                  className="flex flex-col gap-4"
+      {accountConnection && (
+        <div className="w-full flex justify-center ">
+          {accountLoading ? (
+            <Loading />
+          ) : (
+            <div className="p-3 w-full">
+              <div className="flex items-center justify-center gap-3 mb-2">
+                <Tabs
+                  color="primary"
+                  variant="underlined"
+                  size="lg"
+                  items={[
+                    { value: Chain.ETH.toString(), label: "ETH" },
+                    { value: Chain.BTC.toString(), label: "BTC" },
+                    { value: Chain.BNB.toString(), label: "BNB" },
+                  ]}
+                  selectedKey={chain.toString()}
+                  onSelectionChange={(v) => {
+                    setAccountBalance("");
+                    setSelectedTokenId(undefined);
+                    setChain(Number(v) as Chain);
+                  }}
                 >
-                  <Input
-                    label="Address"
-                    {...register("to")}
-                    placeholder="To Address"
-                  />
-                  <Input label="Value" {...register("value")} placeholder="Value" />
-                  <Input label="Data" {...register("data")} placeholder="0x" />
-                  <Button type="submit" color="primary" isLoading={isSendingTransaction}>
-                    Send Transaction
+                  {(item) => <Tab key={item.value} title={item.label}></Tab>}
+                </Tabs>
+              </div>
+
+              <Card className="mb-4">
+                <CardHeader className="flex flex-wrap gap-3 justify-between">
+                  {!!accountTokens?.length && (
+                    <Tabs
+                      color="primary"
+                      items={accountTokens}
+                      selectedKey={selectedTokenId}
+                      onSelectionChange={(v) =>
+                        setSelectedTokenId(v.toString())
+                      }
+                    >
+                      {(item) => (
+                        <Tab
+                          key={item.token_id}
+                          title={item.metadata.title}
+                        ></Tab>
+                      )}
+                    </Tabs>
+                  )}
+                  <Button
+                    onClick={addDerivationPath}
+                    isLoading={loadingAdd}
+                    color="primary"
+                    variant="bordered"
+                    size="sm"
+                  >
+                    New Derivation Path
                   </Button>
-                </form>
-              </CardBody>
-            </Card>
+                </CardHeader>
+                {selectedTokenId && (
+                  <CardBody>
+                    <div>
+                      <Input
+                        label="Derived Address"
+                        name="derivedAddress"
+                        value={derivedAddress}
+                        disabled
+                        icon={{
+                          icon: <LuCopy />,
+                          onClick: () => {
+                            navigator.clipboard.writeText(derivedAddress ?? "");
+                            toast.success("Copied!");
+                          },
+                        }}
+                      />
+                      <div className="mb-3">
+                        Balance: {accountBalance}{" "}
+                        <Button
+                          onClick={getAccountBalance}
+                          color="primary"
+                          variant="light"
+                          size="sm"
+                          className=" self-end"
+                        >
+                          Check Balance
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Button
+                          onClick={handleEdit}
+                          isLoading={loadingEdit}
+                          color="primary"
+                          variant="bordered"
+                          size="sm"
+                        >
+                          Edit {accountToken?.metadata.title}
+                        </Button>
+                        <Button
+                          onClick={handleSell}
+                          isLoading={loadingSell}
+                          color="primary"
+                          variant="bordered"
+                          size="sm"
+                        >
+                          Sell {accountToken?.metadata.title}
+                        </Button>
+                      </div>
+                    </div>
+                  </CardBody>
+                )}
+              </Card>
 
-
-
-          </div>
-        )}
-      </div>}
-
+              <Card>
+                <CardBody>
+                  <h2 className=" text-xl font-bold mb-3">Transaction</h2>
+                  <form
+                    onSubmit={handleSubmit(onSubmit)}
+                    className="flex flex-col gap-4"
+                  >
+                    <Input
+                      label="Address"
+                      {...register("to")}
+                      placeholder="To Address"
+                    />
+                    <Input
+                      label="Value"
+                      {...register("value")}
+                      placeholder="Value"
+                    />
+                    <Input
+                      label="Data"
+                      {...register("data")}
+                      placeholder="0x"
+                    />
+                    <Button
+                      type="submit"
+                      color="primary"
+                      isLoading={isSendingTransaction}
+                    >
+                      Send Transaction
+                    </Button>
+                  </form>
+                </CardBody>
+              </Card>
+            </div>
+          )}
+        </div>
+      )}
     </div>
-
   );
 }
