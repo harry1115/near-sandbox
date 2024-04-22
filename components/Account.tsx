@@ -86,7 +86,7 @@ export default function Account() {
            
             </>
           ) : (
-            <div className="flex flex-col h-[100vh] justify-center items-center gap-3 text-base">
+            <div className="flex flex-col justify-center items-center gap-3 text-base absolute left-0 right-0 top-0 bottom-0">
               <Button onClick={handleCreateAccount}>Create Account</Button>
               or
               <Button onClick={importAccount}>Import Account</Button>

@@ -27,6 +27,22 @@ import {
   Tabs,
 } from "@nextui-org/react";
 import { useRequest } from "@/hooks/useHooks";
+import Account from "@/components/Account";
+import Tabbar from "@/components/Tabbar";
+import { utils } from "near-api-js";
+
+export default function Page(){
+  const [tab, setTab] = useState("wallet");
+
+  return <div className="flex flex-col h-[100dvh]">
+  <div className="flex-1 overflow-y-auto">
+    <Account />
+    {tab==='wallet'&&<Wallet />}
+    {tab==='market'&&<Market />}
+  </div>
+  <Tabbar value={tab} onChange={setTab} />
+</div>
+}
 
 const MPC_PUBLIC_KEY =
   "secp256k1:4HFcTSodRLVCGNVcGc4Mf2fwBBBxv9jxkGdiW2S2CA1y6UpVVRWKj6RX7d7TDt65k2Bj3w9FU4BGtt43ZvuhCnNt";
@@ -58,7 +74,7 @@ enum Chain {
   BTC = 0,
 }
 
-export default function Home() {
+function Wallet() {
   const { register, handleSubmit } = useForm<Transaction>();
   const [isSendingTransaction, setIsSendingTransaction] = useState(false);
   const { accountConnection, accountLoading } = useAccountContext();
@@ -406,4 +422,82 @@ export default function Home() {
       )}
     </div>
   );
+}
+
+ function Market() {
+  const { accountId } = useAccountContext();
+  const {
+    data: marketAccounts,
+    run: refresh,
+    loading,
+  } = useRequest(() => marketServices.getMarketListPaged());
+
+  const { data: myAccountTokens, run: refreshAccountTokens } = useRequest(() =>
+    transactionServices.queryTokens()
+  );
+
+  function formatAmount(v: string) {
+    return utils.format.formatNearAmount(v);
+  }
+
+  const [actionLoading, setActionLoading] = useState(false);
+  async function handleBuy(tokenId: string, price: string) {
+    try {
+      setActionLoading(true);
+      await marketServices.buyDerivationPath(tokenId, price);
+      await refresh();
+      await refreshAccountTokens();
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleTakeOff(tokenId: string) {
+    try {
+      setActionLoading(true);
+      await marketServices.removeDerivationPathFromMarket(tokenId);
+      await refresh();
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  return accountId?(
+    <div>
+      <div className="p-5">
+        <table className="w-full">
+          <thead>
+            <tr>
+              <th className="text-left">Token ID</th>
+              <th className="text-left">Price</th>
+              <th className="text-left">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(marketAccounts || {}).map(([id, price]) => (
+              <tr key={id}>
+                <td>{id}</td>
+                <td>{formatAmount(price)} NEAR</td>
+                <td className="py-2">
+                  {myAccountTokens?.some((t) => t.token_id === id) ? (
+                    <Button size="sm" color="danger" variant="ghost" isLoading={actionLoading} onClick={() => handleTakeOff(id)}>
+                      Take Off
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      color="primary" isLoading={actionLoading}
+                      onClick={() => handleBuy(id, formatAmount(price))}
+                    >
+                      Buy
+                    </Button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  ):<div></div>
 }

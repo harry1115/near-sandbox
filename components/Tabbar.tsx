@@ -1,15 +1,13 @@
 "use client";
 import { Tab, Tabs } from "@nextui-org/react";
-import { useRouter,usePathname } from "next/navigation";
 
-export default function Tabbar() {
-    const pathname = usePathname();
-  const router = useRouter();
+export default function Tabbar({value,onChange}: {value:string,onChange:(value:string)=>void}) {
+    
 
   return (
     <Tabs
-      selectedKey={pathname}
-      onSelectionChange={(key) => router.push(key as string)}
+      selectedKey={value}
+      onSelectionChange={(key) => onChange(key as string)}
       color="primary"
       variant="underlined"
       classNames={{
@@ -20,8 +18,8 @@ export default function Tabbar() {
       }}
       aria-label="Options"
     >
-      <Tab key="/multi-chain" title="Wallet" href="/multi-chain" />
-      <Tab key="/market" title="Market" href="/market" />
+      <Tab key="wallet" title="Wallet" />
+      <Tab key="market" title="Market"  />
     </Tabs>
   );
 }

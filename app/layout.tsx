@@ -4,8 +4,7 @@ import "./globals.css";
 import { ToastProvider } from "@/providers/Toast";
 import ThemeProvider from "@/providers/ThemeProvider";
 import AuthProvider from "@/providers/Account";
-import Account from "@/components/Account";
-import Tabbar from "@/components/Tabbar";
+
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -24,13 +23,8 @@ export default function RootLayout({
       <body className={`${inter.className} dark`}>
         <ThemeProvider>
           <AuthProvider>
-            <div className="flex flex-col h-[100vh]">
-              <div className="flex-1 overflow-y-auto">
-                <Account />
-                {children}
-              </div>
-              <Tabbar />
-            </div>
+          {children}
+            
             <ToastProvider />
           </AuthProvider>
         </ThemeProvider>
