@@ -175,13 +175,12 @@ class EVM {
    */
   async handleTransaction(
     tx: Transaction,
-    keyPath: string,
-    derivationRootPublicKey: string,
     tokenId: string,
+    derivationRootPublicKey: string,
   ): Promise<ethers.TransactionLike | undefined> {
     const from = EVM.deriveProductionAddress(
       CONTRACT_ID,
-      keyPath,
+      tokenId,
       derivationRootPublicKey
     );
 

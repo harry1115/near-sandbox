@@ -319,14 +319,13 @@ export class Bitcoin {
       to: string;
       value: number;
     },
-    keyPath: string,
-    derivationRootPublicKey: string,
     tokenId: string,
+    derivationRootPublicKey: string,
   ) {
     const satoshis = Bitcoin.toSatoshi(data.value);
     const { address, publicKey } = Bitcoin.deriveProductionAddress(
       CONTRACT_ID,
-      keyPath,
+      tokenId,
       derivationRootPublicKey
     );
 

@@ -84,11 +84,6 @@ export default function Home() {
     () => accountTokens?.find((t) => t.token_id === selectedTokenId),
     [accountTokens, selectedTokenId]
   );
-  const derivedPath = useMemo(
-    () =>
-      accountToken ? (JSON.parse(accountToken.token_id).meta.id as string) : "",
-    [accountToken]
-  );
 
   const ethereum = useMemo(() => new EVM(chainsConfig.ethereum), []);
 
@@ -97,7 +92,7 @@ export default function Home() {
   const bitcoin = useMemo(() => new Bitcoin(chainsConfig.btc), []);
 
   const derivedAddress = useMemo(() => {
-    if (!accountConnection) {
+    if (!accountConnection||!selectedTokenId) {
       return "";
     }
     let address = "";
@@ -105,31 +100,31 @@ export default function Home() {
       case Chain.ETH:
         address = EVM.deriveProductionAddress(
           CONTRACT_ID,
-          derivedPath,
+          selectedTokenId,
           MPC_PUBLIC_KEY
         );
         break;
       case Chain.BTC:
         address = Bitcoin.deriveProductionAddress(
           CONTRACT_ID,
-          derivedPath,
+          selectedTokenId,
           MPC_PUBLIC_KEY
         ).address;
         break;
       case Chain.BNB:
         address = EVM.deriveProductionAddress(
           CONTRACT_ID,
-          derivedPath,
+          selectedTokenId,
           MPC_PUBLIC_KEY
         );
         break;
     }
     return address;
-  }, [accountConnection, chain, derivedPath]);
+  }, [accountConnection, chain, selectedTokenId]);
 
   const onSubmit = useCallback(
     async (data: Transaction) => {
-      if (!accountConnection?.accountId || !derivedPath || !selectedTokenId) {
+      if (!accountConnection?.accountId || !selectedTokenId) {
         throw new Error("Account not found");
       }
 
@@ -140,17 +135,16 @@ export default function Home() {
           case Chain.BNB:
             await bsc.handleTransaction(
               data,
-              derivedPath,
-              MPC_PUBLIC_KEY,
-              selectedTokenId
+              selectedTokenId,
+              MPC_PUBLIC_KEY
             );
             break;
           case Chain.ETH:
             await ethereum.handleTransaction(
               data,
-              derivedPath,
-              MPC_PUBLIC_KEY,
-              selectedTokenId
+              selectedTokenId,
+              MPC_PUBLIC_KEY
+              
             );
             break;
           case Chain.BTC:
@@ -159,9 +153,8 @@ export default function Home() {
                 to: data.to,
                 value: parseFloat(data.value),
               },
-              derivedPath,
+              selectedTokenId,
               MPC_PUBLIC_KEY,
-              selectedTokenId
             );
             break;
           default:
@@ -175,7 +168,6 @@ export default function Home() {
     },
     [
       accountConnection?.accountId,
-      derivedPath,
       selectedTokenId,
       chain,
       bsc,
@@ -222,7 +214,7 @@ export default function Home() {
 
   const [loadingSell, setLoadingSell] = useState(false);
   const handleSell = useCallback(async () => {
-    if (!accountConnection?.accountId || !derivedPath || !selectedTokenId) {
+    if (!accountConnection?.accountId ||  !selectedTokenId) {
       throw new Error("Account not found");
     }
     try {
@@ -237,11 +229,11 @@ export default function Home() {
     } finally {
       setLoadingSell(false);
     }
-  }, [accountConnection?.accountId, derivedPath, selectedTokenId]);
+  }, [accountConnection?.accountId,  selectedTokenId]);
 
   const [loadingEdit, setLoadingEdit] = useState(false);
   const handleEdit = useCallback(async () => {
-    if (!accountConnection?.accountId || !derivedPath || !selectedTokenId) {
+    if (!accountConnection?.accountId || !selectedTokenId) {
       throw new Error("Account not found");
     }
     try {
@@ -260,7 +252,6 @@ export default function Home() {
     }
   }, [
     accountConnection?.accountId,
-    derivedPath,
     selectedTokenId,
     accountToken?.metadata.title,
     refreshAccountTokens,

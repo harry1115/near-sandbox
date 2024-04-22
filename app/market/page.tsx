@@ -3,6 +3,7 @@ import { useRequest } from "@/hooks/useHooks";
 import { useAccountContext } from "@/providers/Account";
 import { marketServices, transactionServices } from "@/services/transaction";
 import { Button } from "@nextui-org/react";
+import { utils } from "near-api-js";
 import { useState } from "react";
 
 export default function Page() {
@@ -18,7 +19,7 @@ export default function Page() {
   );
 
   function formatAmount(v: string) {
-    return (Number(v) / 10 ** 24).toString();
+    return utils.format.formatNearAmount(v);
   }
 
   const [actionLoading, setActionLoading] = useState(false);
