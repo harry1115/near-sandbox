@@ -100,6 +100,10 @@ export const accountServices = {
     },
 
     async importAccountBySeedPhrase(seedPhrase: string) {
+        if(seedPhrase.split(' ').length !== 12){
+            alert('Provided seed phrase must be at least 12 words long')
+            throw new Error('Provided seed phrase must be at least 12 words long')
+        }
         const { publicKey, secretKey } = parseSeedPhrase(seedPhrase)
         const accountId = await this.generateAccountId(publicKey);
         if (!accountId) {

@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useForm } from "react-hook-form";
 import Loader from "@/components/Loader";
 import Input from "@/components/Input";
@@ -30,18 +36,21 @@ import { useRequest } from "@/hooks/useHooks";
 import Account from "@/components/Account";
 import Tabbar from "@/components/Tabbar";
 import { utils } from "near-api-js";
+import { useMessageBoxContext } from "@/providers/MessageBoxProvider";
 
-export default function Page(){
+export default function Page() {
   const [tab, setTab] = useState("wallet");
 
-  return <div className="flex flex-col h-[100dvh]">
-  <div className="flex-1 overflow-y-auto">
-    <Account />
-    {tab==='wallet'&&<Wallet />}
-    {tab==='market'&&<Market />}
-  </div>
-  <Tabbar value={tab} onChange={setTab} />
-</div>
+  return (
+    <div className="flex flex-col h-[100dvh]">
+      <div className="flex-1 overflow-y-auto">
+        <Account />
+        {tab === "wallet" && <Wallet />}
+        {tab === "market" && <Market />}
+      </div>
+      <Tabbar value={tab} onChange={setTab} />
+    </div>
+  );
 }
 
 const MPC_PUBLIC_KEY =
@@ -108,7 +117,7 @@ function Wallet() {
   const bitcoin = useMemo(() => new Bitcoin(chainsConfig.btc), []);
 
   const derivedAddress = useMemo(() => {
-    if (!accountConnection||!selectedTokenId) {
+    if (!accountConnection || !selectedTokenId) {
       return "";
     }
     let address = "";
@@ -149,18 +158,13 @@ function Wallet() {
       try {
         switch (Number(chain)) {
           case Chain.BNB:
-            await bsc.handleTransaction(
-              data,
-              selectedTokenId,
-              MPC_PUBLIC_KEY
-            );
+            await bsc.handleTransaction(data, selectedTokenId, MPC_PUBLIC_KEY);
             break;
           case Chain.ETH:
             await ethereum.handleTransaction(
               data,
               selectedTokenId,
               MPC_PUBLIC_KEY
-              
             );
             break;
           case Chain.BTC:
@@ -170,7 +174,7 @@ function Wallet() {
                 value: parseFloat(data.value),
               },
               selectedTokenId,
-              MPC_PUBLIC_KEY,
+              MPC_PUBLIC_KEY
             );
             break;
           default:
@@ -211,41 +215,63 @@ function Wallet() {
     setAccountBalance(balance);
   }, [bsc, chain, derivedAddress, ethereum, bitcoin]);
 
+  const { confirm } = useMessageBoxContext();
+
   const [loadingAdd, setLoadingAdd] = useState(false);
+  const newAlias = useRef<string>();
   const addDerivationPath = useCallback(async () => {
     if (accountConnection) {
-      const newAlias = await prompt(
+      await confirm(
+        <>
+          <Input
+            label="Alias"
+            onChange={(e) => (newAlias.current = e.target.value)}
+          />
+        </>,
         "Please enter the alias for the new derivation path"
       );
-      if (!newAlias) return;
+
+      if (!newAlias.current) return;
       try {
         setLoadingAdd(true);
-        await transactionServices.addDerivationPath(newAlias, chain);
+        await transactionServices.addDerivationPath(newAlias.current, chain);
+        newAlias.current = "";
         refreshAccountTokens();
       } finally {
         setLoadingAdd(false);
       }
     }
-  }, [accountConnection, chain, refreshAccountTokens]);
+  }, [accountConnection, chain, confirm, refreshAccountTokens]);
 
   const [loadingSell, setLoadingSell] = useState(false);
+  const price = useRef<string>();
   const handleSell = useCallback(async () => {
-    if (!accountConnection?.accountId ||  !selectedTokenId) {
+    if (!accountConnection?.accountId || !selectedTokenId) {
       throw new Error("Account not found");
     }
     try {
-      const price = await prompt("Please enter the price to sell");
-      if (!price) return;
+      await confirm(
+        <>
+          <Input
+            label="Price"
+            onChange={(e) => (price.current = e.target.value)}
+          />
+        </>,
+        "Please enter the price to sell"
+      );
+      if (!price.current) return;
+     
       setLoadingSell(true);
       const result = await marketServices.addDerivationPathToMarket(
         selectedTokenId,
-        price
+        price.current
       );
+      price.current = "";
       console.log("result", result);
     } finally {
       setLoadingSell(false);
     }
-  }, [accountConnection?.accountId,  selectedTokenId]);
+  }, [accountConnection?.accountId, confirm, selectedTokenId]);
 
   const [loadingEdit, setLoadingEdit] = useState(false);
   const handleEdit = useCallback(async () => {
@@ -253,25 +279,27 @@ function Wallet() {
       throw new Error("Account not found");
     }
     try {
-      const newAlias = await prompt(
+      console.log('accountToken?.metadata.title', accountToken?.metadata.title)
+       newAlias.current =accountToken?.metadata.title;
+       await confirm(<>
+          <Input
+            label="New Alias" defaultValue={accountToken?.metadata.title}
+            onChange={(e) => (newAlias.current = e.target.value)}
+          />
+       </>,
         "Please enter the new alias for the derivation path",
-        accountToken?.metadata.title
       );
-      if (!newAlias || newAlias === accountToken?.metadata.title) return;
+      if (!newAlias.current || newAlias.current === accountToken?.metadata.title) return;
       setLoadingEdit(true);
-      await transactionServices.updateDerivationPath(newAlias, selectedTokenId);
+      await transactionServices.updateDerivationPath(newAlias.current, selectedTokenId);
+      newAlias.current = "";
       refreshAccountTokens();
     } catch (e: any) {
       toast.error(e.message);
     } finally {
       setLoadingEdit(false);
     }
-  }, [
-    accountConnection?.accountId,
-    selectedTokenId,
-    accountToken?.metadata.title,
-    refreshAccountTokens,
-  ]);
+  }, [accountConnection?.accountId, selectedTokenId, accountToken?.metadata.title, confirm, refreshAccountTokens]);
 
   return (
     <div className="text-xs">
@@ -424,7 +452,7 @@ function Wallet() {
   );
 }
 
- function Market() {
+function Market() {
   const { accountId } = useAccountContext();
   const {
     data: marketAccounts,
@@ -462,7 +490,7 @@ function Wallet() {
     }
   }
 
-  return accountId?(
+  return accountId ? (
     <div>
       <div className="p-5">
         <table className="w-full">
@@ -480,13 +508,20 @@ function Wallet() {
                 <td>{formatAmount(price)} NEAR</td>
                 <td className="py-2">
                   {myAccountTokens?.some((t) => t.token_id === id) ? (
-                    <Button size="sm" color="danger" variant="ghost" isLoading={actionLoading} onClick={() => handleTakeOff(id)}>
+                    <Button
+                      size="sm"
+                      color="danger"
+                      variant="ghost"
+                      isLoading={actionLoading}
+                      onClick={() => handleTakeOff(id)}
+                    >
                       Take Off
                     </Button>
                   ) : (
                     <Button
                       size="sm"
-                      color="primary" isLoading={actionLoading}
+                      color="primary"
+                      isLoading={actionLoading}
                       onClick={() => handleBuy(id, formatAmount(price))}
                     >
                       Buy
@@ -499,5 +534,7 @@ function Wallet() {
         </table>
       </div>
     </div>
-  ):<div></div>
+  ) : (
+    <div></div>
+  );
 }
