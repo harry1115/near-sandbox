@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     redirects:()=>[
-        // { source: '', destination: '/multi-chain', permanent: true}
+        { source: '/', destination: '/multi-chain', permanent: true}
     ]
 };
 
