@@ -59,7 +59,7 @@ export default function Account() {
 
   return (
     <>
-      <div className="text-xs">
+      <div className="text-xs relative">
         {!accountLoading &&
           (accountId ? (
             <>

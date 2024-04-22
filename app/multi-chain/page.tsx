@@ -43,12 +43,12 @@ export default function Page() {
 
   return (
     <div className="flex flex-col h-[100dvh]">
+      <Tabbar value={tab} onChange={setTab} />
       <div className="flex-1 overflow-y-auto">
         <Account />
         {tab === "wallet" && <Wallet />}
         {tab === "market" && <Market />}
       </div>
-      <Tabbar value={tab} onChange={setTab} />
     </div>
   );
 }

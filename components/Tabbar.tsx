@@ -12,8 +12,8 @@ export default function Tabbar({value,onChange}: {value:string,onChange:(value:s
       variant="underlined"
       classNames={{
         tabList:
-          "gap-6 w-full relative rounded-none p-0  border-divider border-t border-b-0 !bg-default-50",
-        cursor: "w-full top-0",
+          "gap-6 w-full relative rounded-none p-0  border-divider  !bg-default-50",
+        cursor: "w-full",
         tab: "flex-1 w-full px-0 h-12",
       }}
       aria-label="Options"
